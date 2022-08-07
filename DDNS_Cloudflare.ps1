@@ -1,8 +1,8 @@
-﻿Invoke-RestMethod -uri "https://ifconfig.io/ip" | Set-Content -Path "YourPath\querried_ip.txt"
+Invoke-RestMethod -uri "https://ifconfig.io/ip" | Set-Content -Path "YourPath\querried_ip.txt"
 $LastIP = ((gc "YourPath\last_ip.txt") | ? {$_.trim() -ne "" })
 $QuerriedIP = ((gc "YourPath\querried_ip.txt") | ? {$_.trim() -ne "" })
 
-if ($LastIPHome -ne $QuerriedIPHome){
+if ($LastIP -ne $QuerriedIP){
     Set-Content -Path "YourPath\last_ip.txt" -Value $QuerriedIP
     $hostname = "hostname.your.domain"
     $zoneid = "Your_Zone_ID"
