@@ -3,7 +3,6 @@ $LastIP = ((gc "YourPath\last_ip.txt") | ? {$_.trim() -ne "" })
 $QuerriedIP = ((gc "YourPath\querried_ip.txt") | ? {$_.trim() -ne "" })
 
 if ($LastIP -ne $QuerriedIP){
-    Set-Content -Path "YourPath\last_ip.txt" -Value $QuerriedIP
     $hostname = "hostname.your.domain"
     $zoneid = "Your_Zone_ID"
     $token = "Your_Token"
@@ -22,5 +21,6 @@ if ($LastIP -ne $QuerriedIP){
 
     # Update the record
     $result = Invoke-RestMethod -Method put -Uri "$url/$record_ID" -Headers @{"Authorization" = "Bearer $token"} -Body $body -ContentType "application/json"
+    Set-Content -Path "YourPath\last_ip.txt" -Value $QuerriedIP
     Add-Content -Path "YourPath\log.log" -Value "$(Get-Date -Format yyyy/dd/MM-HH:mm:ss) DNS Record updated to $($QuerriedIPHome)"
 }
