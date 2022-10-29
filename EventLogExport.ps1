@@ -17,9 +17,9 @@ Start-Sleep -s 1
 Write-Host "Starting Folder check"
 
 foreach($Server in $Servers){
-if(!(Test-Path -path "${LocalPath}$Server${DateYear}" )){
-    if(!(Test-Path -path "${LocalPath}$Server" )){New-Item -name $Server -Path "${LocalPath}" -ItemType Directory}
-New-Item -name $DateYear -Path "${LocalPath}$Server" -ItemType Directory}
+    if(!(Test-Path -path "${LocalPath}$Server${DateYear}" )){
+        if(!(Test-Path -path "${LocalPath}$Server" )){New-Item -name $Server -Path "${LocalPath}" -ItemType Directory}
+    New-Item -name $DateYear -Path "${LocalPath}$Server" -ItemType Directory}
 }
 Write-Host "Completed Folder check `n"
 Start-Sleep -s 1
