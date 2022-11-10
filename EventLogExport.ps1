@@ -1,4 +1,4 @@
-﻿Write-Host "EventLog Export Script has been started"
+Write-Host "EventLog Export Script has been started"
 Start-Sleep -s 1
 Write-Host "Starting Variable check"
 
@@ -28,8 +28,8 @@ Write-host "Starting EventLog Export on all Servers`nThis may take a while..."
 foreach($Type in $LogTypes){
     foreach($Server in $Servers){
         wevtutil epl $Type "${EvtLogExpPath}${Type}_${DateFull}.evtx" /r:$Server
-        Start-Sleep -s 2
     }
+    Start-Sleep -s 2
 }
 
 Write-Host "Completed EventLog Export on all Servers `n"
@@ -45,7 +45,7 @@ foreach($Type in $LogTypes){
         If($LogTest){Clear-EventLog $Type -ComputerName $Server}
         else{
             Write-Host "INFORMATION: $Server $Type ${InfMsg}" -ForegroundColor Yellow
-            Start-Sleep -s 10
+            Start-Sleep -s 5
             $LogTest = Test-Path -Path "${LocalPath}$Server\${DateYear}\${Type}_${DateFull}.evtx" -PathType Leaf
             if($LogTest){Clear-EventLog $Type -ComputerName $Server}
             else{write-Warning -Message "$Server $Type ${WarnMsg}"}
