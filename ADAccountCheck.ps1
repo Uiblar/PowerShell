@@ -1,4 +1,4 @@
-﻿#Array of all DCs, FQDN will better performance
+﻿#Array of all DCs, FQDN will have better performance
 $DCs = @(
 	"DC-00004",
 	"DC-00005",
