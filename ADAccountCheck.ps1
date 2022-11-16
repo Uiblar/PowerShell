@@ -8,7 +8,7 @@ Function ConvertTime{
     }
 }
 Function NewLine{
-	Write-Host "`n"
+	Write-Host "`n" -NoNewline
 }
 $DCs = @()
 $DCDiscovery = (Get-ADDomainController -Filter * | select name)
@@ -19,11 +19,13 @@ while($true){
     $LogonList = @()
     $user = ""
     #Get User
-    while($user.length -eq 0){$user = Read-Host "Bitte Kürzel eingeben";NewLine}
+    while($user.length -eq 0){$user = Read-Host "Bitte Benutzernamen eingeben";NewLine}
     try{$ADUser = Get-ADUser -identity $user -Properties *}
     catch{Write-Host "User not found" -ForegroundColor Red; continue}
     #Return DN
-    "Account befindet sich in OU: $(try{$ADuser.DistinguishedName}catch{"NOT FOUND"})"
+    Write-Host "$(try{$ADUser.DisplayName}catch{"USER HAS NO GIVEN NAME"})"
+    NewLine
+    Write-Host "Account befindet sich in OU: $(try{$ADuser.DistinguishedName}catch{"NOT FOUND"})"
     #Check Last PW Change
     Write-Host "Letzter Passwortwechsel: $(try{ConvertTime -TimeNT $ADUser.pwdLastSet}catch{"NOT FOUND"})"
     Write-Host "Letzter fehlgeschlagener Login: $(try{get-date $ADUser.LastBadPasswordAttempt -Format "dd.MM.yyyy HH:mm:ss"}catch{"NOT FOUND"})"
@@ -38,6 +40,7 @@ while($true){
     else {write-host "Passwort nicht abgelaufen" -ForegroundColor Green}
 
     #Check on each DC
+    Write-Host "Letzte Logins an DCs:"
     foreach ($DC in $DCs){
         try{
             $tmpLogon = Get-ADUser -Identity $user -Server $DC -Properties *
@@ -55,7 +58,6 @@ while($true){
             catch{}
         }
     }
-    Write-Host "Letzte Logins an DCs"
     $LogonList | ft -HideTableHeaders
     NewLine
 }
