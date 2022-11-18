@@ -17,6 +17,7 @@ foreach($dc in $DCDiscovery){
 }
 while($true){
     $LogonList = @()
+    $BadPWList = @()
     $user = ""
     #Get User
     while($user.length -eq 0){$user = Read-Host "Bitte Benutzernamen eingeben";NewLine}
@@ -26,9 +27,31 @@ while($true){
     Write-Host "$(try{$ADUser.DisplayName}catch{"USER HAS NO GIVEN NAME"})"
     NewLine
     Write-Host "Account befindet sich in OU: $(try{$ADuser.DistinguishedName}catch{"NOT FOUND"})"
+    foreach ($DC in $DCs){
+        try{
+            $tmpLogon = Get-ADUser -Identity $user -Server $DC -Properties *
+            $LogonList += New-Object -Type PSObject -Property (@{
+                "Server" = "$DC"
+                "Time" = $tmpLogon.lastLogon
+            })
+            $BadPWList += New-Object -Type PSObject -Property (@{
+                "Server" = "$DC"
+                "Time" = $tmpLogon.LastBadPasswordAttempt
+            })
+        }
+        catch{$LogonList += "UNAVAILABLE"}
+    }
+    $LogonList = $LogonList | sort -Property Time
+    $BadPWList = $BadPWList | sort -Property Time -Descending
+    foreach($Entry in $LogonList){
+        if($Entry.Time){
+            try{$Entry.Time = ConvertTime -TimeNT $Entry.Time}
+            catch{}
+        }
+    }
     #Check Last PW Change
     Write-Host "Letzter Passwortwechsel: $(try{ConvertTime -TimeNT $ADUser.pwdLastSet}catch{"NOT FOUND"})"
-    Write-Host "Letzter fehlgeschlagener Login: $(try{get-date $ADUser.LastBadPasswordAttempt -Format "dd.MM.yyyy HH:mm:ss"}catch{"NOT FOUND"})"
+    Write-Host "Letzter fehlgeschlagener Login: $(try{get-date $BadPWList[0].Time -Format "dd.MM.yyyy HH:mm:ss"}catch{"NOT FOUND"})"
     #Check Account Lockout Status
     if ($ADUser.lockedout) {write-host "Konto gesperrt" -ForegroundColor Red}
     else {write-host "Konto nicht gesperrt" -ForegroundColor Green}
@@ -41,23 +64,7 @@ while($true){
 
     #Check on each DC
     Write-Host "Letzte Logins an DCs:"
-    foreach ($DC in $DCs){
-        try{
-            $tmpLogon = Get-ADUser -Identity $user -Server $DC -Properties *
-            $LogonList += New-Object -Type PSObject -Property (@{
-                "Server" = "$DC - "
-             "Time" = $tmpLogon.LastLogon
-            })
-        }
-        catch{$LogonList += "UNAVAILABLE"}
-    }
-    $LogonList = $LogonList | sort -Property Time
-    foreach($Entry in $LogonList){
-        if($Entry.Time){
-            try{$Entry.Time = ConvertTime -TimeNT $Entry.Time}
-            catch{}
-        }
-    }
-    $LogonList | ft -HideTableHeaders
+    
+    $LogonList | Format-Table -HideTableHeaders
     NewLine
 }
