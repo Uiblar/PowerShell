@@ -8,11 +8,9 @@ Function Get-FileName($initialDirectory) {
 		return $dialog.FileName
 	}
 }
-
 Function NewLine{
 	Write-Host "`n"
 }
-
 $Hash = @()
 $Selection = @(
 	"SHA1",
@@ -25,11 +23,9 @@ $Selection = @(
 	"Select new File",
 	"Exit"
 )
-
 $FileName = Get-FileName
 Write-Host "$FileName"
 NewLine
-
 while($true){
 	$counter = 0
 	write-host "Select Algorithm"
