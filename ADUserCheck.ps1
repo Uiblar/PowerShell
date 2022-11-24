@@ -1,70 +1,57 @@
-﻿Clear-Host
-Function ConvertTime{
-    Param([Parameter(Mandatory)]$TimeNT)
-    Process{
-    $LocalZone = [System.TimeZoneInfo]::Local
-    $Date = ([System.TimeZoneInfo]::ConvertTimeFromUtc(([DateTime]::FromFileTimeUTC($TimeNT)),$LocalZone))
-    get-date $Date -Format "dd.MM.yyyy HH:mm:ss"
-    }
-}
-Function NewLine{
-	Write-Host "`n" -NoNewline
-}
-$DCs = @()
-$DCDiscovery = (Get-ADDomainController -Filter * | select name)
-foreach($dc in $DCDiscovery){
-    $DCs += $dc.name
-}
-while($true){
-    $LogonList = @()
-    $BadPWList = @()
-    $user = ""
-    #Get User
-    while($user.length -eq 0){$user = Read-Host "Bitte Benutzernamen eingeben";NewLine}
-    try{$ADUser = Get-ADUser -identity $user -Properties *}
-    catch{Write-Host "User not found" -ForegroundColor Red; continue}
-    #Return DN
-    Write-Host "$(try{$ADUser.DisplayName}catch{"USER HAS NO GIVEN NAME"})"
-    NewLine
-    Write-Host "Account befindet sich in OU: $(try{$ADuser.DistinguishedName}catch{"NOT FOUND"})"
-    foreach ($DC in $DCs){
-        try{
-            $tmpLogon = Get-ADUser -Identity $user -Server $DC -Properties *
-            $LogonList += New-Object -Type PSObject -Property (@{
-                "Server" = "$DC"
-                "Time" = $tmpLogon.lastLogon
-            })
-            $BadPWList += New-Object -Type PSObject -Property (@{
-                "Server" = "$DC"
-                "Time" = $tmpLogon.LastBadPasswordAttempt
-            })
+function Check-ADUserActivity {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false,ValueFromPipeline=$true)]
+        [Alias('samaccountname','user')]
+        [string]$Identity = $(Read-Host "Bitte Benutzernamen eingeben")
+    )
+    try {
+        if([bool]$(Get-ADUser -Filter {sAMAccountName -eq $Identity})){
+            $ADUser = Get-ADUser -Identity $Identity -Properties *            
+            # Get all DCs
+            $DCs = Get-ADDomainController -Filter * | Select-Object -ExpandProperty Name | Sort-Object
+            # Get the newest logon date from all DCs and get last bad password attempt
+            $NewestLogonDate = $null
+            $LastBadPasswordAttempt = $null
+            foreach($DC in $DCs){
+                Write-Host "Get logon date from $DC" -ForegroundColor Yellow
+                $ADUserfromDC = Get-ADUser -Identity $Identity -Server $DC -Properties LastLogon,LastBadPasswordAttempt
+                $LogonDate = $ADUserfromDC | Select-Object -ExpandProperty LastLogon
+                $BadPasswordAttempt = $ADUserfromDC | Select-Object -ExpandProperty LastBadPasswordAttempt
+                if($LogonDate -gt $NewestLogonDate){
+                    $NewestLogonDate = $LogonDate
+                }
+                if($BadPasswordAttempt -gt $LastBadPasswordAttempt){
+                    $LastBadPasswordAttempt = $BadPasswordAttempt
+                }
+            }
+            # Create pscustomobject for output
+            $Output = [PSCustomObject]@{
+                Vorname = $ADUser.GivenName
+                Nachname = $ADUser.Surname
+                SamAccountName = $ADUser.SamAccountName
+                DistinguishedName = $ADUser.DistinguishedName
+                Lockedout = $ADUser.lockedout
+                Aktiv = $ADUser.Enabled
+                LetzterLogon = [datetime]::FromFileTime($NewestLogonDate)                
+                LastBadPasswordAttempt = $LastBadPasswordAttempt
+                pwdLastSet = [datetime]::FromFileTime($ADUser.pwdLastSet)
+                PasswordExpired = $ADUser.PasswordExpired
+                PasswordNeverExpires = $ADUser.PasswordNeverExpires
+            }
+            # Write output to stdout
+            return $Output
         }
-        catch{$LogonList += "UNAVAILABLE"}
-    }
-    $LogonList = $LogonList | sort -Property Time
-    $BadPWList = $BadPWList | sort -Property Time -Descending
-    foreach($Entry in $LogonList){
-        if($Entry.Time){
-            try{$Entry.Time = ConvertTime -TimeNT $Entry.Time}
-            catch{}
+        else{
+            Write-Host "Benutzer $Identity nicht gefunden" -ForegroundColor Red
+            return $null
         }
+        
     }
-    #Check Last PW Change
-    Write-Host "Letzter Passwortwechsel: $(try{ConvertTime -TimeNT $ADUser.pwdLastSet}catch{"NOT FOUND"})"
-    Write-Host "Letzter fehlgeschlagener Login: $(try{get-date $BadPWList[0].Time -Format "dd.MM.yyyy HH:mm:ss"}catch{"NOT FOUND"})"
-    #Check Account Lockout Status
-    if ($ADUser.lockedout) {write-host "Konto gesperrt" -ForegroundColor Red}
-    else {write-host "Konto nicht gesperrt" -ForegroundColor Green}
-    #Check Account Active
-    if ($ADUser.enabled) {write-host "Konto aktiviert" -ForegroundColor Green}
-    else {write-host "Konto deaktiviert" -ForegroundColor Red}
-    #Check PW Life
-    if ($ADUser.passwordexpired) {write-host "Passwort abgelaufen" -ForegroundColor Red}
-    else {write-host "Passwort nicht abgelaufen" -ForegroundColor Green}
+    catch {
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Line: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor Red
+        Write-Host "File: $($_.InvocationInfo.ScriptName)" -ForegroundColor Red
+    }
 
-    #Check on each DC
-    Write-Host "Letzte Logins an DCs:"
-    
-    $LogonList | Format-Table -HideTableHeaders
-    NewLine
 }
